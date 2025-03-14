@@ -1,22 +1,9 @@
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-import React from "react";
-
-type Row = {
-  // id: number;
-  // avatar: string;
-  fullName: string;
-  yearOfBirth: number;
-  hometown: string;
-  IdNumber: string;
-  // violation: string;
-  // action: React.ReactNode;
-};
+import { TransformProfileBlacklistGetResponseType } from "../../types/global/Global.type";
 
 type DataTableProps = {
-  rows: Row[];
+  rows: TransformProfileBlacklistGetResponseType[];
   columns: GridColDef[];
-  loading: boolean;
-  rowCount: number;
   paginationModel: {
     page: number;
     pageSize: number;
@@ -27,15 +14,19 @@ type DataTableProps = {
       pageSize: number;
     }>
   >;
+  isLoadingDeleteData: boolean;
+  isLoadingAddData: boolean;
+  isLoadingEditData: boolean;
 };
 
 const DataTable = ({
   columns,
   rows,
-  loading,
-  rowCount,
   paginationModel,
   setPaginationModel,
+  isLoadingDeleteData,
+  isLoadingAddData,
+  isLoadingEditData,
 }: DataTableProps) => {
   return (
     <>
@@ -48,8 +39,7 @@ const DataTable = ({
             className="w-full h-full"
             columns={columns}
             rows={rows}
-            rowCount={rowCount}
-            loading={loading}
+            rowCount={rows.length}
             pageSizeOptions={[5, 10]}
             paginationModel={paginationModel}
             paginationMode="server"
@@ -59,6 +49,9 @@ const DataTable = ({
                 page: newPage.page,
                 pageSize: newPage.pageSize,
               }))
+            }
+            loading={
+              isLoadingDeleteData || isLoadingAddData || isLoadingEditData
             }
           />
         </div>
