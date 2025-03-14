@@ -1,9 +1,10 @@
 import { useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { resetHasShownLostConnectionToServerToast } from "../../utils/customAxios";
-import * as FacialRecognitionService from "../../APIServices/FacialRecognition.api";
-import * as ProfileBlacklistService from "../../APIServices/ProfileBlacklist.api";
-
+import * as FacialRecognitionService from "../../APIServices/FacialRecognitionService.api";
+import * as ProfileBlacklistService from "../../APIServices/ProfileBlacklistService.api";
+import { ProfileBlacklistGetResponseType } from "../../types/APIServices/ProfileBlacklistService.type";
+import { FacialRecognitionPostResponseType } from "../../types/APIServices/FacialRecognitionService.type";
 import { WSContext } from "../../utils/context/Contexts";
 import { GlobalStateContext } from "../../utils/context/Contexts";
 
@@ -21,6 +22,16 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 import errIcon from "../../assets/images/error_icon.png";
 import { toast } from "react-toastify";
+
+interface ViolationDetectedFromWSType {
+  avata: string;
+  full_name: string;
+  year_of_birth: number | string;
+  hometown: string;
+  id_number: string;
+  violation: string;
+  data: string[];
+}
 
 const Supervise = () => {
   // setup before fly variable
@@ -47,8 +58,12 @@ const Supervise = () => {
   const setStartFly = globalStateContext?.setStartFly;
 
   // info from WS
-  const [blackList, setBlackList] = useState({});
-  const [violationInfo, setViolationInfo] = useState([]);
+  const [blackList, setBlackList] = useState<ProfileBlacklistGetResponseType>(
+    {}
+  );
+  const [violationInfo, setViolationInfo] = useState<
+    ViolationDetectedFromWSType[]
+  >([]);
   // Lọc các giá trị temp hợp lệ
   const validViolationInfo = violationInfo.filter(
     (t) => t !== null && t.full_name
@@ -115,13 +130,13 @@ const Supervise = () => {
           });
         }
         console.log("data:", data);
-        const faceDetectedWS = data.profile.detections;
+        const violationDetectedFromWS = data.profile.detections;
 
         if (setStartFly) {
           setStartFly(true);
         }
-        if (faceDetectedWS.length > 0) {
-          setViolationInfo(faceDetectedWS);
+        if (violationDetectedFromWS.length > 0) {
+          setViolationInfo(violationDetectedFromWS);
         }
       };
     } catch (error) {
@@ -177,10 +192,6 @@ const Supervise = () => {
     ) {
       setHadCompletedSetUpBeforeFly(true);
     }
-    // if (setStartFly) {
-    //   setStartFly(true);
-    // }
-    // handleCloseSetUpBeforeFly();
     const formData = new FormData();
     formData.append("camera", selectedCameraCheckBox ? "true" : "false");
     if (selectedVideo) {
@@ -189,7 +200,7 @@ const Supervise = () => {
     getConfirmedDataBeforeSupervise(formData);
   };
 
-  const sendConfirmedDataToWS = (data) => {
+  const sendConfirmedDataToWS = (data: FacialRecognitionPostResponseType) => {
     if (!ws || !ws.current) return;
     console.log(
       "data to WS: ",
@@ -202,7 +213,7 @@ const Supervise = () => {
     handleCloseSetUpBeforeFly();
   };
 
-  const getConfirmedDataBeforeSupervise = async (formData) => {
+  const getConfirmedDataBeforeSupervise = async (formData: FormData) => {
     const getConfirmed = await FacialRecognitionService.postData({
       data: formData,
       options: {
@@ -245,89 +256,74 @@ const Supervise = () => {
           <DialogContent
             sx={{
               height: "200px",
+              width: "100%",
               display: "flex",
-              flexDirection: "column",
               justifyContent: "space-evenly",
               alignItems: "center",
             }}
           >
-            <Grid container spacing={4}>
-              <Grid
-                size={selectedVideo ? 3 : 12}
-                sx={{
-                  height: "150px",
-                  width: "fit-content",
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-evenly",
-                }}
-              >
-                {!selectedVideoCheckBox && (
+            <div>
+              {!selectedVideoCheckBox && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={selectedCameraCheckBox}
+                      onChange={handleSelectCameraCheckBox}
+                    />
+                  }
+                  label={
+                    <span className="font-medium text-[0.875rem]">CAMERA</span>
+                  }
+                />
+              )}
+
+              {!selectedCameraCheckBox && (
+                <div className="flex">
                   <FormControlLabel
                     control={
                       <Checkbox
-                        checked={selectedCameraCheckBox}
-                        onChange={handleSelectCameraCheckBox}
+                        checked={selectedVideoCheckBox}
+                        onChange={handleSelectVideoCheckBox}
                       />
                     }
-                    label={"Camera"}
-                  />
-                )}
-
-                {!selectedCameraCheckBox && (
-                  <div className="flex">
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={selectedVideoCheckBox}
-                          onChange={handleSelectVideoCheckBox}
-                        />
-                      }
-                      label={""}
-                    />
-                    <Button
-                      className="!h-10 !-ml-5.5"
-                      component="label"
-                      htmlFor="files"
-                      disabled={selectedVideoCheckBox ? false : true}
-                    >
-                      Video
-                      <input
-                        id="files"
-                        name="file"
-                        multiple
-                        accept="video/*"
-                        style={{ display: "none" }}
-                        type="file"
-                        onChange={(event) => handleVideoImport(event)}
-                      />
-                    </Button>
-                  </div>
-                )}
-              </Grid>
-              <Grid size={selectedVideo ? 6 : 0} sx={{ height: "150px" }}>
-                {selectedVideo && (
-                  <div className="h-full w-full flex justify-center items-center">
-                    {selectedVideo && (
-                      <div
-                        className="h-[45px] w-[100%] flex justify-evenly items-center border-1 
-                      border-gray-400 rounded-xl"
+                    label={
+                      <Button
+                        className="!h-10 !-ml-2.5"
+                        component="label"
+                        htmlFor="superviseVideoFile"
+                        disabled={selectedVideoCheckBox ? false : true}
                       >
-                        <UploadFileIcon />
-                        <span>{selectedVideo?.name}</span>
-                        <Button
-                          className="!h-fit !min-w-2.5"
-                          color="error"
-                          onClick={() => handleRemoveFile(selectedVideo.name)}
-                        >
-                          x
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Grid>
-            </Grid>
+                        {selectedVideoCheckBox ? "Choose Video File" : "Video"}
+                        <input
+                          id="superviseVideoFile"
+                          name="file"
+                          accept="video/*"
+                          style={{ display: "none" }}
+                          type="file"
+                          onChange={(event) => handleVideoImport(event)}
+                        />
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
+            </div>
+            {selectedVideo && (
+              <div className="flex flex-col items-center">
+                <p>Đã tải lên 1 video:</p>
+                <div className="w-42 flex justify-evenly items-center border border-gray-400 rounded-xl">
+                  <UploadFileIcon />
+                  <span>{selectedVideo.name}</span>
+                  <Button
+                    className="!h-fit !min-w-2.5"
+                    color="error"
+                    onClick={() => handleRemoveFile(selectedVideo.name)}
+                  >
+                    x
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
           <DialogActions
             sx={{
@@ -336,19 +332,12 @@ const Supervise = () => {
               padding: "16px 24px",
             }}
           >
-            <Link
-              className="relative box-border bg-transparent outline-none 
-                        border-none m-0 cursor-pointer select-none no-underline 
-                        text-center font-['Roboto'] font-medium text-[0.875rem] 
-                        leading-[1.75] uppercase min-w-[64px] !px-[8px] !py-[6px] 
-                        rounded-[4px] transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)] 
-                        !ml-[32px] text-[#1976d2] block hover:no-underline 
-                        hover:bg-[rgba(255,255,255,0.1)] active:no-underline 
-                        active:bg-[rgba(255,255,255,0.1)]"
-              to={"/Blacklist"}
+            <Button
+              disabled={hadCompletedSetUpBeforeFly}
+              onClick={() => (window.location.hash = "/Blacklist")}
             >
               Hủy
-            </Link>
+            </Button>
 
             <Button
               color="primary"
@@ -369,6 +358,7 @@ const Supervise = () => {
       </>
     );
   };
+
   return (
     <>
       {setUpBeforeFly()}
@@ -376,13 +366,6 @@ const Supervise = () => {
       {startFly && (
         <Grid container spacing={1}>
           <Grid size={9}>
-            {/* <Button
-              className="!absolute top-20.5 left-2.5"
-              variant="contained"
-              color="error"
-            >
-              Dừng giám sát
-            </Button> */}
             {((selectedCameraCheckBox && devices.length > 0) ||
               (selectedVideo && selectedVideoCheckBox)) && (
               <img
@@ -409,46 +392,42 @@ const Supervise = () => {
                     (info) => info.full_name === blackList[name].full_name
                   );
                   return (
-                    <>
-                      <div
-                        key={index}
-                        className={`!mt-5.5 w-[95%] shadow-lg font-bold bg-white 
-                      text-black rounded-lg ${
-                        isWanted ? "border-2 blink-border" : ""
-                      }`}
-                      >
-                        <div className="p-2.5 uppercase flex justify-evenly items-center">
-                          <img
-                            src={
-                              import.meta.env.VITE_API_URL +
-                              blackList[name].avata
-                            } // sua thanh link avatar sau
-                            srcSet={
-                              import.meta.env.VITE_API_URL +
-                              blackList[name].avata
-                            }
-                            alt="đối tượng vi phạm"
-                            className="w-30 h-30 rounded-lg"
-                          />
-                          <div className="!ml-2.5">
-                            <p>Tên: {blackList[name].full_name}</p>
-                            <p>Tuổi: {blackList[name].year_of_birth}</p>
-                            <p>Quê quán: {blackList[name].hometown}</p>
-                            <p className="text-red-500">
-                              Đối tượng giám sát: {index + 1}
-                            </p>
-                          </div>
-                          {isWanted && (
-                            <img
-                              src={errIcon}
-                              srcSet={errIcon}
-                              alt="đối tượng vi phạm"
-                              className="w-10 h-10"
-                            />
-                          )}
-                        </div>
+                    <div
+                      key={index}
+                      className={`!mt-5.5 !p-2.5 w-[97%] h-[124px] shadow-lg font-bold uppercase 
+                        bg-white text-black rounded-lg flex justify-evenly items-center ${
+                          isWanted ? "border-2 blink-border" : ""
+                        }`}
+                    >
+                      <img
+                        src={
+                          import.meta.env.VITE_API_URL + blackList[name].avata
+                        }
+                        srcSet={
+                          import.meta.env.VITE_API_URL + blackList[name].avata
+                        }
+                        alt="đối tượng vi phạm"
+                        className="w-30 h-30 rounded-lg"
+                      />
+                      <div className="!ml-2.5">
+                        <p>Tên: {blackList[name].full_name}</p>
+                        <p>Năm sinh: {blackList[name].year_of_birth}</p>
+                        <p>Quê quán: {blackList[name].hometown}</p>
+                        <p className="text-red-500">
+                          Đối tượng giám sát: {index + 1}
+                        </p>
                       </div>
-                    </>
+                      <div className="w-10 h-10">
+                        {isWanted && (
+                          <img
+                            src={errIcon}
+                            srcSet={errIcon}
+                            alt="đối tượng vi phạm"
+                            className="w-full h-full"
+                          />
+                        )}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
